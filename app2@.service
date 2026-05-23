@@ -1,0 +1,29 @@
+[Unit]
+Description=Application app2 instance %i
+After=network.target app1.service
+Requires=app1.service
+PartOf=apps.target
+
+[Service]
+Type=simple
+User=app2
+Group=app2
+WorkingDirectory=/opt/app2
+EnvironmentFile=/opt/app2/conf/app2.env
+Environment="PORT=900%i"
+ExecStart=/opt/app2/bin/app2 \
+    -Dconfig.file=${CONFIG_FILE_PATH} \
+    -Dhttp.port=${PORT} \
+    -Dfile.encoding=UTF8
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=app2-%i
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=65536
+
+[Install]
+WantedBy=apps.target

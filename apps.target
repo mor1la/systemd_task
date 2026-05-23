@@ -1,0 +1,7 @@
+[Unit]
+Description=Applications target
+Requires=app1.service app2@1.service app2@2.service
+After=network.target app1.service
+
+[Install]
+WantedBy=multi-user.target

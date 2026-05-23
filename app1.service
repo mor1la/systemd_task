@@ -1,0 +1,26 @@
+[Unit]
+Description=Application app1
+After=network.target
+
+[Service]
+Type=simple
+User=app1
+Group=app1
+WorkingDirectory=/opt/app1
+EnvironmentFile=/opt/app1/conf/app1.env
+ExecStart=/opt/app1/bin/app1 \
+    -Dconfig.file=${CONFIG_FILE_PATH} \
+    -Dhttp.port=${PORT} \
+    -Dfile.encoding=UTF8
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=app1
+Restart=on-failure
+RestartSec=5s
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
