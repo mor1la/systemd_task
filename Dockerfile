@@ -3,6 +3,8 @@ FROM eclipse-temurin:17-jre-jammy@sha256:8a21b8680d754f9f953b8285fb140879979a3b1
 ARG APP_DIR
 ARG APP_BIN
 
+ENV APP_BIN=${APP_BIN}
+
 WORKDIR /opt/app
 
 RUN apt-get update \
