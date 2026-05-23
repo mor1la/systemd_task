@@ -1,6 +1,6 @@
-# Запуск app1 и двух экземпляров app2 через systemd
+# Systemd Unit Files for app1 and app2
 
-## Состав
+## Состав репо
 
 ```text
 app1.service
