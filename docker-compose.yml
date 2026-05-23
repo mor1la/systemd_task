@@ -18,7 +18,7 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  app2-9002:
+  app2-9002: &app2
     build:
       context: .
       dockerfile: Dockerfile
@@ -37,19 +37,8 @@ services:
     restart: unless-stopped
 
   app2-9003:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        APP_DIR: app2
-        APP_BIN: app2
-    env_file:
-      - app2.env
+    <<: *app2
     environment:
       PORT: 9003
     ports:
       - "9003:9003"
-    depends_on:
-      app1:
-        condition: service_healthy
-    restart: unless-stopped
