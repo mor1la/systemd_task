@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+if [ ! -f app1.env ] || [ ! -f app2.env ]; then
+    echo "Env files are missing. Create them from examples first:"
+    echo "  cp app1.env.example app1.env"
+    echo "  cp app2.env.example app2.env"
+    echo "Then edit app1.env and app2.env if needed."
+    exit 1
+fi
+
 sudo cp app1.service /etc/systemd/system/
 sudo cp app2@.service /etc/systemd/system/
 sudo cp apps.target /etc/systemd/system/

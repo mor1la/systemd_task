@@ -1,85 +1,115 @@
-# Systemd Unit Files for app1 and app2
+# Systemd service files для app1 и app2
 
-## Состав репо
+## Что реализовано
+
+Реализован запуск двух приложений через systemd:
+
+- `app1.service` — запуск приложения `app1`;
+- `app2@.service` — шаблонный unit-файл для запуска нескольких экземпляров `app2`;
+- `apps.target` — общий target для запуска всего набора приложений одной командой.
+
+По заданию `app2` запускается только после `app1`, а само приложение `app2` запускается в двух экземплярах.
+
+В этой реализации используются два экземпляра:
+
+```text
+app2@9002.service
+app2@9003.service
+```
+
+Номер экземпляра одновременно является портом приложения
+
+## Состав файлов
 
 ```text
 app1.service
 app2@.service
 apps.target
-app1.env
-app2.env
+app1.env.example
+app2.env.example
 install.sh
 ```
 
-`app1.service` запускает приложение `app1`.
+## Подготовка env-файлов
 
-`app2@.service` — шаблонный unit-файл. Через него запускаются два экземпляра `app2`:
-
-```text
-app2@1.service
-app2@2.service
-```
-
-`apps.target` объединяет все необходимые unit-файлы в одну группу:
-
-```text
-app1.service
-app2@1.service
-app2@2.service
-```
-
-За счёт этого весь набор приложений можно запустить одной командой:
+Перед установкой нужно создать реальные env-файлы из примеров:
 
 ```bash
-sudo systemctl start apps.target
+cp app1.env.example app1.env
+cp app2.env.example app2.env
 ```
 
-## Логика запуска
+После этого при необходимости можно отредактировать значения
 
-`app2` зависит от `app1`:
+Пример `app1.env`:
 
-```ini
-After=app1.service
-Requires=app1.service
-```
-
-Поэтому экземпляры `app2` запускаются только после запуска `app1.service`.
-
-В `apps.target` явно указано, что должны быть запущены `app1` и два экземпляра `app2`:
-
-```ini
-Requires=app1.service app2@1.service app2@2.service
-After=network.target app1.service
-```
-
-## Порты
-
-Для `app1` порт задаётся в `app1.env`:
-
-```text
+```env
 PORT=9001
+CONFIG_FILE_PATH=conf/application.conf
+JAVA_OPTS=-Xms512m -Xmx1G
 ```
 
-Для `app2` используется шаблонный unit-файл и номер экземпляра:
+Пример `app2.env`:
+
+```env
+CONFIG_FILE_PATH=conf/application.conf
+JAVA_OPTS=-Xms512m -Xmx1G
+```
+
+Для `app2` порт не указывается в env-файле, потому что он задаётся через имя экземпляра systemd-сервиса:
 
 ```ini
-Environment="PORT=900%i"
+Environment="PORT=%i"
 ```
 
 Примеры:
 
 ```text
-app2@1.service -> PORT=9001
-app2@2.service -> PORT=9002
+app2@9002.service -> PORT=9002
+app2@9003.service -> PORT=9003
 ```
 
-Если для `app1` и `app2@1` нельзя использовать одинаковый порт, можно запускать экземпляры `app2@2` и `app2@3`, а в `apps.target` заменить строки на:
+Переменная `JAVA_OPTS` не указывается в `ExecStart`, потому что по условию она используется внутри скрипта запуска приложения `/opt/app1/bin/app1` или `/opt/app2/bin/app2`.
+
+## Логика запуска
+
+`app1.service` запускается первым.
+
+В `app2@.service` указана зависимость от `app1`:
 
 ```ini
-Requires=app1.service app2@2.service app2@3.service
+After=network.target app1.service
+Requires=app1.service
 ```
 
-## Установка через скрипт
+Это означает:
+
+- `After=app1.service` задаёт порядок запуска: `app2` стартует после `app1`;
+- `Requires=app1.service` указывает, что для запуска `app2` нужен `app1`.
+
+В `apps.target` перечислены все сервисы, которые должны быть запущены вместе:
+
+```ini
+Requires=app1.service app2@9002.service app2@9003.service
+After=network.target app1.service
+```
+
+Поэтому весь набор можно запустить одной командой:
+
+```bash
+sudo systemctl start apps.target
+```
+
+## Установка через install.sh
+
+Сначала создать env-файлы:
+
+```bash
+cp app1.env.example app1.env
+cp app2.env.example app2.env
+```
+
+Затем запустить установку:
 
 ```bash
 chmod +x install.sh
@@ -88,13 +118,29 @@ chmod +x install.sh
 
 Скрипт:
 
-1. копирует unit-файлы в `/etc/systemd/system/`;
-2. копирует env-файлы в `/opt/app1/conf/` и `/opt/app2/conf/`;
-3. создаёт системных пользователей `app1` и `app2`, если их ещё нет;
-4. выполняет `systemctl daemon-reload`;
-5. включает и запускает `apps.target`.
+1. проверяет наличие `app1.env` и `app2.env`;
+2. копирует unit-файлы в `/etc/systemd/system/`;
+3. копирует env-файлы в `/opt/app1/conf/` и `/opt/app2/conf/`;
+4. создаёт системных пользователей `app1` и `app2`, если их ещё нет;
+5. назначает права на каталоги `/opt/app1` и `/opt/app2`;
+6. выполняет `systemctl daemon-reload`;
+7. включает и запускает `apps.target`.
+
+Cами приложения должны уже лежать в каталогах:
+
+```text
+/opt/app1/bin/app1
+/opt/app2/bin/app2
+```
 
 ## Ручная установка
+
+Создать env-файлы:
+
+```bash
+cp app1.env.example app1.env
+cp app2.env.example app2.env
+```
 
 Скопировать unit-файлы:
 
@@ -112,7 +158,7 @@ sudo cp app1.env /opt/app1/conf/app1.env
 sudo cp app2.env /opt/app2/conf/app2.env
 ```
 
-Создать системных пользователей:
+Создать пользователей:
 
 ```bash
 sudo useradd --system --no-create-home --shell /usr/sbin/nologin app1
@@ -133,7 +179,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable apps.target
 ```
 
-Запустить все приложения:
+Запустить приложения:
 
 ```bash
 sudo systemctl start apps.target
@@ -144,16 +190,8 @@ sudo systemctl start apps.target
 ```bash
 systemctl status apps.target
 systemctl status app1.service
-systemctl status app2@1.service
-systemctl status app2@2.service
-```
-
-## Просмотр логов
-
-```bash
-journalctl -u app1.service -f
-journalctl -u app2@1.service -f
-journalctl -u app2@2.service -f
+systemctl status app2@9002.service
+systemctl status app2@9003.service
 ```
 
 ## Остановка
@@ -164,18 +202,3 @@ journalctl -u app2@2.service -f
 sudo systemctl stop apps.target
 ```
 
-Остановить конкретный экземпляр `app2`:
-
-```bash
-sudo systemctl stop app2@1.service
-```
-
-## Добавление нового экземпляра app2
-
-Для добавления нового экземпляра отдельный unit-файл не нужен. Достаточно выбрать номер экземпляра:
-
-```bash
-sudo systemctl start app2@3.service
-```
-
-В этом случае приложение запустится с портом `9003`.

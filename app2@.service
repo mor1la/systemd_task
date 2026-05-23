@@ -1,5 +1,5 @@
 [Unit]
-Description=Application app2 instance %i
+Description=Application app2 instance on port %i
 After=network.target app1.service
 Requires=app1.service
 PartOf=apps.target
@@ -10,7 +10,7 @@ User=app2
 Group=app2
 WorkingDirectory=/opt/app2
 EnvironmentFile=/opt/app2/conf/app2.env
-Environment="PORT=900%i"
+Environment="PORT=%i"
 ExecStart=/opt/app2/bin/app2 \
     -Dconfig.file=${CONFIG_FILE_PATH} \
     -Dhttp.port=${PORT} \

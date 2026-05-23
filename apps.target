@@ -1,6 +1,6 @@
 [Unit]
 Description=Applications target
-Requires=app1.service app2@2.service app2@3.service
+Requires=app1.service app2@9002.service app2@9003.service
 After=network.target app1.service
 
 [Install]
