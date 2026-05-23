@@ -1,12 +1,14 @@
-# Systemd service files для app1 и app2
+# Задание 1
+
+## Systemd service files для app1 и app2
 
 ## Что реализовано
 
 Реализован запуск двух приложений через systemd:
 
-- `app1.service` — запуск приложения `app1`;
-- `app2@.service` — шаблонный unit-файл для запуска нескольких экземпляров `app2`;
-- `apps.target` — общий target для запуска всего набора приложений одной командой.
+- `app1.service` — запуск приложения `app1`
+- `app2@.service` — шаблонный unit-файл для запуска нескольких экземпляров `app2`
+- `apps.target` — общий target для запуска всего набора приложений одной командой
 
 По заданию `app2` запускается только после `app1`, а само приложение `app2` запускается в двух экземплярах.
 
@@ -28,6 +30,8 @@ apps.target
 app1.env.example
 app2.env.example
 install.sh
+Dockerfile
+docker-compose.yml
 ```
 
 ## Подготовка env-файлов
@@ -71,6 +75,7 @@ app2@9003.service -> PORT=9003
 
 Переменная `JAVA_OPTS` не указывается в `ExecStart`, потому что по условию она используется внутри скрипта запуска приложения `/opt/app1/bin/app1` или `/opt/app2/bin/app2`.
 
+
 ## Логика запуска
 
 `app1.service` запускается первым.
@@ -84,8 +89,8 @@ Requires=app1.service
 
 Это означает:
 
-- `After=app1.service` задаёт порядок запуска: `app2` стартует после `app1`;
-- `Requires=app1.service` указывает, что для запуска `app2` нужен `app1`.
+- `After=app1.service` задаёт порядок запуска: `app2` стартует после `app1`
+- `Requires=app1.service` указывает, что для запуска `app2` нужен `app1`
 
 В `apps.target` перечислены все сервисы, которые должны быть запущены вместе:
 
@@ -99,6 +104,7 @@ After=network.target app1.service
 ```bash
 sudo systemctl start apps.target
 ```
+
 
 ## Установка через install.sh
 
@@ -126,7 +132,7 @@ chmod +x install.sh
 6. выполняет `systemctl daemon-reload`;
 7. включает и запускает `apps.target`.
 
-Cами приложения должны уже лежать в каталогах:
+Важно: сами приложения должны уже лежать в каталогах:
 
 ```text
 /opt/app1/bin/app1
@@ -202,3 +208,76 @@ systemctl status app2@9003.service
 sudo systemctl stop apps.target
 ```
 
+# Задание 2 и 3
+## Docker и docker-compose
+
+Дополнительно добавлен пример `Dockerfile` и `docker-compose.yml` для запуска этих же приложений в контейнерах.
+
+В `Dockerfile` базовый образ закреплён по digest. Это делает сборку более воспроизводимой: Docker будет использовать не просто тег `ubuntu:22.04`, а конкретную версию образа.
+
+Также в `Dockerfile` оставлены только параметры, которые относятся к сборке образа:
+
+- `APP_DIR` — каталог приложения, например `app1` или `app2`
+- `APP_BIN` — имя исполняемого файла, например `app1` или `app2`
+
+Runtime-переменные задаются из env-файлов или из `docker-compose.yml`:
+
+- `PORT`
+- `CONFIG_FILE_PATH`
+- `JAVA_OPTS`
+
+Перед запуском нужно создать реальные env-файлы из примеров:
+
+```bash
+cp app1.env.example app1.env
+cp app2.env.example app2.env
+```
+
+Для `app1` порт задаётся в `app1.env`:
+
+```env
+PORT=9001
+CONFIG_FILE_PATH=conf/application.conf
+JAVA_OPTS=-Xms512m -Xmx1G
+```
+
+Для `app2` общие параметры задаются в `app2.env`, а порт каждого экземпляра задаётся отдельно в `docker-compose.yml`:
+
+```yaml
+environment:
+  PORT: 9002
+```
+
+и:
+
+```yaml
+environment:
+  PORT: 9003
+```
+
+Сборка и запуск:
+
+```bash
+docker compose up --build
+```
+
+
+В `docker-compose.yml` описаны три контейнера:
+
+- `app1` — запускается на порту `9001`
+- `app2-9002` — первый экземпляр `app2`
+- `app2-9003` — второй экземпляр `app2`
+
+Для `app1` добавлен `healthcheck`. Поэтому `app2` запускается не просто после создания контейнера `app1`, а после того, как `app1` станет `healthy`:
+
+```yaml
+depends_on:
+  app1:
+    condition: service_healthy
+```
+
+Остановить контейнеры:
+
+```bash
+docker compose down
+```

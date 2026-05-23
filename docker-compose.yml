@@ -1,0 +1,55 @@
+services:
+  app1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: app1
+        APP_BIN: app1
+    env_file:
+      - app1.env
+    ports:
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9001/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  app2-9002:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: app2
+        APP_BIN: app2
+    env_file:
+      - app2.env
+    environment:
+      PORT: 9002
+    ports:
+      - "9002:9002"
+    depends_on:
+      app1:
+        condition: service_healthy
+    restart: unless-stopped
+
+  app2-9003:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: app2
+        APP_BIN: app2
+    env_file:
+      - app2.env
+    environment:
+      PORT: 9003
+    ports:
+      - "9003:9003"
+    depends_on:
+      app1:
+        condition: service_healthy
+    restart: unless-stopped
